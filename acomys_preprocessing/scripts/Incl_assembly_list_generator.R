@@ -1,0 +1,270 @@
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(magrittr))
+
+# get command line arguments
+args <- commandArgs(TRUE)
+
+overview_path <- args[1]
+assembly_id_output_path <- args[2]
+dup_spec_df_path <- args[3]
+single_spec_df_path <- args[4]
+
+# make dataframe with assembly names of the same species on the same row (for 
+# all species with multiple genome assemblies). Taxonomy_id's are also indicated. 
+# The dataframe also ranks the assemblies based on the scaffold N50 quality metric.
+dup_spec_df <- data.frame(
+  best_scaffold_N50 = c("HLmesAur2", "mm39", "HLratNor7", "HLhydHyd2", 
+                        "HLhetGla3", "HLoryAfeAfe2", "HLmanPen2", "HLchoDid2", 
+                        "HLeptFus2", "HLvicPac4", "HLereDor2", "HLphaTri2", 
+                        "HLsurSur1", "HLproCoq2", "HLgymLea2", "HLphoSin1", 
+                        "HLbisBisBis2", "HLmyoLuc1", "HLpipPip2", "HLarvNil1", 
+                        "HLfelNig2", "HLturAdu2", "HLhipNigNig2", "HLeulFla1", 
+                        "HLlagObl2", "HLornAna4", "HLtacAcu1", "HLtriVul1", 
+                        "HLartJam2", "HLlemCat2", "HLmanSph2", "canFam4", "HLlycPic3", 
+                        "HLvulVul2", "HLursAme2", "HLpteBra2", "HLcroCro2", 
+                        "HLpanOnc2", "HLgloMel2", "HLturTru4", "HLphoPho2", 
+                        "HLdelLeu3", "HLphyCat2", "HLescRob2", "HLbalMus1", 
+                        "HLtapTer2", "HLtapInd2", "HLproCap4", "HLhipAmp3", 
+                        "HLodoVir2", "HLgirCam2", "HLmanJav2", "oryCun2", 
+                        "HLmarMon2", "HLacoCah2"),
+  sec_best_scaffold_N50 = c("mesAur1", "mm10", "rn6", "HLhydHyd1", 
+                            "hetGla2", "oryAfe1", "manPen1", "HLchoDid1", 
+                            "eptFus1", "vicPac2", "HLereDor1", "HLmanTri1", 
+                            "HLsurSur2", "proCoq1", "HLgymLea1", "HLphoSin1B", 
+                            "bisBis1", "myoLuc2", "HLpipPip1", "HLarvNil1B", 
+                            "HLfelNig1", "HLturAdu1", "HLhipNig1", "eulFla1", 
+                            "HLlagObl1", "HLornAna3", "HLtacAcu2", "HLtriVul2", 
+                            "HLartJam1", "HLlemCat1", "HLmanSph1", "canFam5", 
+                            "HLlycPic2", "HLvulVul1", "HLursAme1", "HLpteBra1", 
+                            "HLcroCro1", "HLpanOnc1", "HLgloMel1", "HLturTru5", 
+                            "HLphoPho1", "HLdelLeu2", "phyCat1", "HLescRob1", 
+                            "HLbalMus2", "HLtapTer1", "HLtapInd1", "HLproCap3", 
+                            "HLhipAmp1", "HLodoVir3", "HLgirCam1", "HLmanJav1", 
+                            "HLoryCun3", "HLmarMon1", "HLacoCah1"),
+  Thirt_best_scaffold_N50 = c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                              NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                              NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                              NA, "HLturTru3", NA, NA, NA, NA, "HLbalMus3", NA, 
+                              NA, NA, NA, NA, NA, NA, NA, NA, NA),
+  Fourth_best_scaffold_N50 = c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                               NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                               NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                               NA, NA, NA, NA, NA, NA, "HLbalMus2B", NA, NA, NA, 
+                               NA, NA, NA, NA, NA, NA, NA),
+  TOGA_name = c("Mesocricetus_auratus", "Mus_musculus", 
+                "Rattus_norvegicus", "Hydrochoerus_hydrochaeris", "Heterocephalus_glaber", 
+                "Orycteropus_afer_afer", "Manis_pentadactyla", "Choloepus_didactylus", 
+                "Eptesicus_fuscus", "Vicugna_pacos", "Erethizon_dorsatum", 
+                "Manis_tricuspis", "Suricata_suricatta", "Propithecus_coquereli", 
+                "Gymnobelideus_leadbeateri", "Phocoena_sinus", "Bison_bison_bison", 
+                "Myotis_lucifugus", "Pipistrellus_pipistrellus", "Arvicanthis_niloticus", 
+                "Felis_nigripes", "Tursiops_aduncus", "Hippotragus_niger_niger", 
+                "Eulemur_flavifrons", "Lagenorhynchus_obliquidens", "Ornithorhynchus_anatinus", 
+                "Tachyglossus_aculeatus", "Trichosurus_vulpecula", "Artibeus_jamaicensis", 
+                "Lemur_catta", "Mandrillus_sphinx", "Canis_lupus_familiaris", "Lycaon_pictus", 
+                "Vulpes_vulpes", "Ursus_americanus", "Pteronura_brasiliensis", "Crocuta_crocuta", 
+                "Panthera_onca", "Globicephala_melas", "Tursiops_truncatus", "Phocoena_phocoena", 
+                "Delphinapterus_leucas", "Physeter_catodon", "Eschrichtius_robustus", 
+                "Balaenoptera_musculus", "Tapirus_terrestris", "Tapirus_indicus", 
+                "Procavia_capensis", "Hippopotamus_amphibius", "Odocoileus_virginianus", 
+                "Giraffa_camelopardalis", "Manis_javanica", "Oryctolagus_cuniculus", 
+                "Marmota_monax", "Acomys_cahirinus"),
+  Tree_name = c("Mesocricetus_auratus", "Mus_musculus", "Rattus_norvegicus", 
+                "Hydrochoerus_hydrochaeris", "Heterocephalus_glaber", "Orycteropus_afer", 
+                "Manis_pentadactyla", "Choloepus_didactylus", "Eptesicus_fuscus", "Vicugna_pacos", 
+                NA, NA, "Suricata_suricatta", "Propithecus_coquereli", NA, NA, "Bison_bison", 
+                "Myotis_lucifugus", "Pipistrellus_pipistrellus", NA, "Felis_nigripes", NA, NA, 
+                "Eulemur_flavifrons", NA, NA, NA, NA, "Artibeus_jamaicensis", "Lemur_catta", NA, 
+                "Canis_lupus_familiaris", "Lycaon_pictus", NA, NA, "Pteronura_brasiliensis", NA, 
+                "Panthera_onca", NA, "Tursiops_truncatus", "Phocoena_phocoena", 
+                "Delphinapterus_leucas", NA, "Eschrichtius_robustus", NA, "Tapirus_terrestris", 
+                "Tapirus_indicus", "Procavia_capensis", "Hippopotamus_amphibius", 
+                "Odocoileus_virginianus", NA, "Manis_javanica", "Oryctolagus_cuniculus", NA,
+                "Acomys_cahirinus"),
+  Taxonomy_id = c(10036, 10090, 10116, 10149, 10181, 1230840, 143292, 27675, 29078, 30538, 
+                  34844, 358128, 37032, 379532, 38618, 42100, 43346, 59463, 59474, 61156, 61379, 
+                  79784, 82127, 87288, 90247, 9258, 9261, 9337, 9417, 9447, 9561, 9615, 9622, 
+                  9627, 9643, 9672, 9678, 9690, 9731, 9739, 9742, 9749, 9755, 9764, 9771, 9801, 
+                  9802, 9813, 9833, 9874, 9894, 9974, 9986, 9995, 10068))
+
+# Dataframe containing all the species names that have just ONE genome assembly 
+# and are included in the cactus paper alignment (241-mammalian-2020v2.nh).
+# As the species names in the cactus alignment and the TOGA overview.table.tsv 
+# file are sometimes slightly different, there is a TOGA_name and a Tree_name column.
+single_spec_df <- 
+  data.frame(TOGA_name = c("Solenodon_paradoxus", "Erinaceus_europaeus", "Sorex_araneus", 
+                           "Uropsilus_gracilis", "Condylura_cristata", "Scalopus_aquaticus", 
+                           "Megaderma_lyra", "Craseonycteris_thonglongyai", 
+                           "Hipposideros_armiger", "Hipposideros_galeritus", 
+                           "Rhinolophus_sinicus", "Macroglossus_sobrinus", "Eidolon_helvum", 
+                           "Pteropus_vampyrus", "Pteropus_alecto", "Rousettus_aegyptiacus", 
+                           "Noctilio_leporinus", "Pteronotus_parnellii", 
+                           "Mormoops_blainvillei", "Carollia_perspicillata", 
+                           "Anoura_caudifer", "Tonatia_saurophila", "Micronycteris_hirsuta", 
+                           "Lasiurus_borealis", "Murina_aurata_feae", "Myotis_myotis", 
+                           "Myotis_brandtii", "Myotis_davidii", "Miniopterus_natalensis", 
+                           "Miniopterus_schreibersii", "Tadarida_brasiliensis", 
+                           "Camelus_dromedarius", "Camelus_ferus", "Camelus_bactrianus", 
+                           "Eubalaena_japonica", "Balaenoptera_bonaerensis", 
+                           "Balaenoptera_acutorostrata_scammoni", "Kogia_breviceps", 
+                           "Platanista_minor", "Mesoplodon_bidens", "Ziphius_cavirostris", 
+                           "Inia_geoffrensis", "Lipotes_vexillifer", 
+                           "Neophocaena_asiaeorientalis_asiaeorientalis", "Monodon_monoceros", 
+                           "Orcinus_orca", "Tragulus_javanicus", "Moschus_moschiferus", 
+                           "Bubalus_bubalis", "Bos_taurus", "Bos_indicus", "Bos_mutus", 
+                           "Beatragus_hunteri", "Ammotragus_lervia", "Hemitragus_hylocrius", 
+                           "Capra_hircus", "Capra_aegagrus", "Ovis_aries", "Ovis_canadensis", 
+                           "Pantholops_hodgsonii", "Saiga_tatarica", "Okapia_johnstoni", 
+                           "Giraffa_tippelskirchi", "Antilocapra_americana", 
+                           "Rangifer_tarandus", "Elaphurus_davidianus", "Catagonus_wagneri", 
+                           "Sus_scrofa", "Cryptoprocta_ferox", "Mungos_mungo", 
+                           "Helogale_parvula", "Hyaena_hyaena", "Paradoxurus_hermaphroditus", 
+                           "Panthera_tigris_altaica", "Panthera_pardus", "Felis_catus", 
+                           "Puma_concolor", "Acinonyx_jubatus", "Vulpes_lagopus", 
+                           "Enhydra_lutris_kenyoni", "Mustela_putorius", "Mellivora_capensis", 
+                           "Ailurus_fulgens", "Spilogale_gracilis", "Zalophus_californianus", 
+                           "Odobenus_rosmarus", "Leptonychotes_weddellii", 
+                           "Mirounga_angustirostris", "Neomonachus_schauinslandi", 
+                           "Ailuropoda_melanoleuca", "Ursus_maritimus", "Equus_caballus", 
+                           "Equus_przewalskii", "Equus_asinus", 
+                           "Dicerorhinus_sumatrensis_sumatrensis", "Diceros_bicornis", 
+                           "Ceratotherium_simum_simum", "Ceratotherium_simum_cottoni", 
+                           "Nycticebus_coucang", "Otolemur_garnettii", 
+                           "Daubentonia_madagascariensis", "Indri_indri", "Cheirogaleus_medius", 
+                           "Microcebus_murinus", "Mirza_coquereli", "Eulemur_fulvus", 
+                           "Pithecia_pithecia", "Plecturocebus_donacophilus", 
+                           "Saguinus_imperator", "Callithrix_jacchus", "Aotus_nancymaae", 
+                           "Saimiri_boliviensis", "Cebus_albifrons", "Cebus_capucinus_imitator", 
+                           "Alouatta_palliata", "Ateles_geoffroyi", "Mandrillus_leucophaeus", 
+                           "Cercocebus_atys", "Papio_anubis", "Macaca_mulatta", 
+                           "Macaca_fascicularis", "Macaca_nemestrina", "Erythrocebus_patas", 
+                           "Chlorocebus_sabaeus", "Cercopithecus_neglectus", 
+                           "Rhinopithecus_roxellana", "Rhinopithecus_bieti", 
+                           "Pygathrix_nemaeus", "Nasalis_larvatus", "Semnopithecus_entellus", 
+                           "Piliocolobus_tephrosceles", "Colobus_angolensis_palliatus", 
+                           "Nomascus_leucogenys", "Gorilla_gorilla_gorilla", "Pan_troglodytes", 
+                           "Pan_paniscus", "Pongo_abelii", "Galeopterus_variegatus", 
+                           "Tupaia_chinensis", "Lepus_americanus", "Ochotona_princeps", 
+                           "Ctenodactylus_gundi", "Petromus_typicus", "Thryonomys_swinderianus", 
+                           "Fukomys_damarensis", "Dolichotis_patagonum", "Cavia_tschudii", 
+                           "Cavia_porcellus", "Cavia_aperea", "Dasyprocta_punctata", 
+                           "Octodon_degus", "Ctenomys_sociabilis", "Myocastor_coypus", 
+                           "Chinchilla_lanigera", "Dinomys_branickii", "Hystrix_cristata", 
+                           "Mus_spretus", "Mus_caroli", "Mus_pahari", 
+                           "Meriones_unguiculatus", "Psammomys_obesus", "Cricetulus_griseus", 
+                           "Microtus_ochrogaster", "Ondatra_zibethicus", "Ellobius_talpinus", 
+                           "Ellobius_lutescens", "Sigmodon_hispidus", 
+                           "Peromyscus_maniculatus_bairdii", "Onychomys_torridus", 
+                           "Cricetomys_gambianus", "Nannospalax_galili", "Jaculus_jaculus", 
+                           "Allactaga_bullata", "Zapus_hudsonius", 
+                           "Perognathus_longimembris_pacificus", "Dipodomys_stephensi", 
+                           "Dipodomys_ordii", "Castor_canadensis", "Xerus_inauris", 
+                           "Spermophilus_dauricus", "Ictidomys_tridecemlineatus", 
+                           "Marmota_marmota_marmota", "Aplodontia_rufa", 
+                           "Muscardinus_avellanarius", "Glis_glis", "Graphiurus_murinus", 
+                           "Dasypus_novemcinctus", "Tolypeutes_matacus", 
+                           "Tamandua_tetradactyla", "Myrmecophaga_tridactyla", 
+                           "Choloepus_hoffmanni", "Trichechus_manatus", "Heterohyrax_brucei", 
+                           "Loxodonta_africana", "Microgale_talazaci", "Echinops_telfairi", 
+                           "Chrysochloris_asiatica", "Elephantulus_edwardii"),
+             Tree_name = c("Solenodon_paradoxus", "Erinaceus_europaeus", "Sorex_araneus", 
+                           "Uropsilus_gracilis", "Condylura_cristata", "Scalopus_aquaticus", 
+                           "Megaderma_lyra", "Craseonycteris_thonglongyai", 
+                           "Hipposideros_armiger", "Hipposideros_galeritus", 
+                           "Rhinolophus_sinicus", "Macroglossus_sobrinus", "Eidolon_helvum", 
+                           "Pteropus_vampyrus", "Pteropus_alecto", "Rousettus_aegyptiacus", 
+                           "Noctilio_leporinus", "Pteronotus_parnellii", "Mormoops_blainvillei", 
+                           "Carollia_perspicillata", "Anoura_caudifer", "Tonatia_saurophila", 
+                           "Micronycteris_hirsuta", "Lasiurus_borealis", "Murina_feae", 
+                           "Myotis_myotis", "Myotis_brandtii", "Myotis_davidii", 
+                           "Miniopterus_natalensis", "Miniopterus_schreibersii", 
+                           "Tadarida_brasiliensis", "Camelus_dromedarius", "Camelus_ferus", 
+                           "Camelus_bactrianus", "Eubalaena_japonica", 
+                           "Balaenoptera_bonaerensis", "Balaenoptera_acutorostrata", 
+                           "Kogia_breviceps", "Platanista_gangetica", "Mesoplodon_bidens", 
+                           "Ziphius_cavirostris", "Inia_geoffrensis", "Lipotes_vexillifer", 
+                           "Neophocaena_asiaeorientalis", "Monodon_monoceros", "Orcinus_orca", 
+                           "Tragulus_javanicus", "Moschus_moschiferus", "Bubalus_bubalis", 
+                           "Bos_taurus", "Bos_indicus", "Bos_mutus", "Beatragus_hunteri", 
+                           "Ammotragus_lervia", "Hemitragus_hylocrius", "Capra_hircus", 
+                           "Capra_aegagrus", "Ovis_aries", "Ovis_canadensis", 
+                           "Pantholops_hodgsonii", "Saiga_tatarica", "Okapia_johnstoni", 
+                           "Giraffa_tippelskirchi", "Antilocapra_americana", 
+                           "Rangifer_tarandus", "Elaphurus_davidianus", "Catagonus_wagneri", 
+                           "Sus_scrofa", "Cryptoprocta_ferox", "Mungos_mungo", 
+                           "Helogale_parvula", "Hyaena_hyaena", "Paradoxurus_hermaphroditus", 
+                           "Panthera_tigris", "Panthera_pardus", "Felis_catus", 
+                           "Puma_concolor", "Acinonyx_jubatus", "Vulpes_lagopus", 
+                           "Enhydra_lutris", "Mustela_putorius", "Mellivora_capensis", 
+                           "Ailurus_fulgens", "Spilogale_gracilis", "Zalophus_californianus", 
+                           "Odobenus_rosmarus", "Leptonychotes_weddellii", 
+                           "Mirounga_angustirostris", "Neomonachus_schauinslandi", 
+                           "Ailuropoda_melanoleuca", "Ursus_maritimus", "Equus_caballus", 
+                           "Equus_przewalskii", "Equus_asinus", "Dicerorhinus_sumatrensis", 
+                           "Diceros_bicornis", "Ceratotherium_simum", 
+                           "Ceratotherium_simum_cottoni", "Nycticebus_coucang", 
+                           "Otolemur_garnettii", "Daubentonia_madagascariensis", "Indri_indri", 
+                           "Cheirogaleus_medius", "Microcebus_murinus", "Mirza_coquereli", 
+                           "Eulemur_fulvus", "Pithecia_pithecia", "Callicebus_donacophilus", 
+                           "Saguinus_imperator", "Callithrix_jacchus", "Aotus_nancymaae", 
+                           "Saimiri_boliviensis", "Cebus_albifrons", "Cebus_capucinus", 
+                           "Alouatta_palliata", "Ateles_geoffroyi", "Mandrillus_leucophaeus", 
+                           "Cercocebus_atys", "Papio_anubis", "Macaca_mulatta", 
+                           "Macaca_fascicularis", "Macaca_nemestrina", "Erythrocebus_patas", 
+                           "Chlorocebus_sabaeus", "Cercopithecus_neglectus", 
+                           "Rhinopithecus_roxellana", "Rhinopithecus_bieti", 
+                           "Pygathrix_nemaeus", "Nasalis_larvatus", "Semnopithecus_entellus", 
+                           "Piliocolobus_tephrosceles", "Colobus_angolensis", 
+                           "Nomascus_leucogenys", "Gorilla_gorilla", "Pan_troglodytes", 
+                           "Pan_paniscus", "Pongo_abelii", "Galeopterus_variegatus", 
+                           "Tupaia_chinensis", "Lepus_americanus", "Ochotona_princeps", 
+                           "Ctenodactylus_gundi", "Petromus_typicus", "Thryonomys_swinderianus", 
+                           "Fukomys_damarensis", "Dolichotis_patagonum", "Cavia_tschudii", 
+                           "Cavia_porcellus", "Cavia_aperea", "Dasyprocta_punctata", 
+                           "Octodon_degus", "Ctenomys_sociabilis", "Myocastor_coypus", 
+                           "Chinchilla_lanigera", "Dinomys_branickii", "Hystrix_cristata", 
+                           "Mus_spretus", "Mus_caroli", "Mus_pahari", "Meriones_unguiculatus", 
+                           "Psammomys_obesus", "Cricetulus_griseus", "Microtus_ochrogaster", 
+                           "Ondatra_zibethicus", "Ellobius_talpinus", "Ellobius_lutescens", 
+                           "Sigmodon_hispidus", "Peromyscus_maniculatus", "Onychomys_torridus", 
+                           "Cricetomys_gambianus", "Nannospalax_galili", "Jaculus_jaculus", 
+                           "Allactaga_bullata", "Zapus_hudsonius", "Perognathus_longimembris", 
+                           "Dipodomys_stephensi", "Dipodomys_ordii", "Castor_canadensis", 
+                           "Xerus_inauris", "Spermophilus_dauricus", "Ictidomys_tridecemlineatus", 
+                           "Marmota_marmota", "Aplodontia_rufa", "Muscardinus_avellanarius", 
+                           "Glis_glis", "Graphiurus_murinus", "Dasypus_novemcinctus", 
+                           "Tolypeutes_matacus", "Tamandua_tetradactyla", 
+                           "Myrmecophaga_tridactyla", "Choloepus_hoffmanni", "Trichechus_manatus", 
+                           "Heterohyrax_brucei", "Loxodonta_africana", "Microgale_talazaci", 
+                           "Echinops_telfairi", "Chrysochloris_asiatica", "Elephantulus_edwardii"))
+
+# get all included species with multiple assemblies
+dup_included_TOGA <- dup_spec_df %>%
+  filter(!(is.na(Tree_name))) %>%
+  use_series(TOGA_name)
+
+# Get all species names (with one or multiple genome assemblies) that are 
+# present in the cactus alignment.
+included_list_TOGA <- append(single_spec_df$TOGA_name, dup_included_TOGA)
+
+# read in the TOGA overview.table.tsv file 
+overview.table <- read.delim(overview_path, stringsAsFactors = FALSE)
+
+# get the vector of all assembly IDs that are to be included in the analysis
+filtered <- overview.table %>%
+  mutate(Species_ = str_replace_all(Species, " ", "_")) %>%
+  filter(Species_ %in% included_list_TOGA) %>%
+  select(Assembly.name) %>%
+  ### LINE THAT LIMITS THE NUMBER OF ANALYZED ASSEMBLIES FOR THE NEXTFLOW TEST
+  slice(1:10) %>%
+  # REFERENCE refers to homo sapiens (hg38)
+  rbind("REFERENCE")
+
+# write assembly IDs to file
+write_csv(filtered, file = assembly_id_output_path, quote = "none", 
+          col_names = FALSE)
+# write for later use
+write_csv(dup_spec_df, dup_spec_df_path, col_names = TRUE)
+write_csv(single_spec_df, single_spec_df_path, col_names = TRUE)
+
+print(sessionInfo())

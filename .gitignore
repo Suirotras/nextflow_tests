@@ -1,0 +1,5 @@
+acomys_preprocessing/input_files
+acomys_preprocessing/singularity_cache
+acomys_preprocessing/work
+acomys_preprocessing/.nextflow
+acomys_preprocessing/.nextflow.log
